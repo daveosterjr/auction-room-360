@@ -1,0 +1,237 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Silent Auction Room · 360° Walkthrough</title>
+<meta name="description" content="Walk through the garden party silent auction room in 360°.">
+<meta property="og:title" content="Silent Auction Room · 360° Walkthrough">
+<meta property="og:description" content="Drag to look around. Tap the markers to move through the room.">
+<meta property="og:image" content="https://daveosterjr.github.io/auction-room-360/hero.jpg">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root { --ink: #fff; --glass: rgba(24, 18, 14, 0.42); --line: rgba(255, 255, 255, 0.22); --accent: #f4b39a; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: #0d0b0a; overflow: hidden; font-family: Inter, system-ui, sans-serif; color: var(--ink); }
+  #view { position: fixed; inset: 0; touch-action: none; cursor: grab; }
+  #view.dragging { cursor: grabbing; }
+  canvas { display: block; }
+  .top { position: fixed; top: 0; left: 0; right: 0; padding: max(18px, env(safe-area-inset-top)) 22px 40px; pointer-events: none;
+         background: linear-gradient(to bottom, rgba(0,0,0,0.45), rgba(0,0,0,0)); display: flex; justify-content: space-between; align-items: flex-start; }
+  .title { font-family: 'Cormorant Garamond', Georgia, serif; font-weight: 600; font-size: clamp(22px, 3.2vw, 34px); letter-spacing: 0.01em; line-height: 1.05; text-shadow: 0 1px 12px rgba(0,0,0,0.35); }
+  .sub { font-size: 13px; opacity: 0.85; margin-top: 6px; letter-spacing: 0.02em; }
+  .tools { pointer-events: auto; display: flex; gap: 8px; }
+  .btn { background: var(--glass); border: 1px solid var(--line); color: #fff; border-radius: 999px; height: 38px; min-width: 38px; padding: 0 14px;
+         display: inline-flex; align-items: center; justify-content: center; gap: 8px; font: 500 13px Inter, sans-serif; cursor: pointer;
+         backdrop-filter: blur(14px) saturate(140%); -webkit-backdrop-filter: blur(14px) saturate(140%); transition: background .2s; }
+  .btn:hover { background: rgba(40, 30, 24, 0.6); }
+  .btn svg { width: 16px; height: 16px; }
+  .strip { position: fixed; left: 0; right: 0; bottom: 0; padding: 40px 16px max(16px, env(safe-area-inset-bottom));
+           background: linear-gradient(to top, rgba(0,0,0,0.55), rgba(0,0,0,0)); display: flex; gap: 10px; justify-content: safe center; overflow-x: auto; scrollbar-width: none; }
+  .strip::-webkit-scrollbar { display: none; }
+  .stop { flex: 0 0 auto; width: 132px; border-radius: 14px; overflow: hidden; border: 1px solid var(--line); background: var(--glass); cursor: pointer; padding: 0;
+          color: #fff; text-align: left; backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); transition: transform .2s, border-color .2s; }
+  .stop:hover { transform: translateY(-2px); }
+  .stop.on { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset; }
+  .stop img { display: block; width: 100%; height: 66px; object-fit: cover; }
+  .stop span { display: block; padding: 7px 10px 8px; font-size: 12px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .hot { position: absolute; transform: translate(-50%, -50%); pointer-events: auto; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 6px; user-select: none; }
+  .hot .ring { width: 44px; height: 44px; border-radius: 50%; border: 2px solid rgba(255,255,255,0.95); background: rgba(255,255,255,0.18);
+               backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); box-shadow: 0 4px 18px rgba(0,0,0,0.35); position: relative; transition: transform .2s; }
+  .hot .ring::after { content: ''; position: absolute; inset: 13px; border-radius: 50%; background: #fff; }
+  .hot .ring::before { content: ''; position: absolute; inset: -8px; border-radius: 50%; border: 2px solid rgba(255,255,255,0.5); animation: pulse 2.2s infinite; }
+  .hot:hover .ring { transform: scale(1.12); }
+  .hot .lbl { background: var(--glass); border: 1px solid var(--line); padding: 5px 11px; border-radius: 999px; font-size: 12px; font-weight: 600; white-space: nowrap;
+              backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); }
+  @keyframes pulse { 0% { transform: scale(0.85); opacity: 0.9; } 100% { transform: scale(1.5); opacity: 0; } }
+  #hots { position: fixed; inset: 0; pointer-events: none; }
+  .hint { position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%); background: var(--glass); border: 1px solid var(--line); padding: 12px 18px;
+          border-radius: 999px; font-size: 14px; white-space: nowrap; backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); transition: opacity .6s; pointer-events: none; }
+  #fade { position: fixed; inset: 0; background: #0d0b0a; opacity: 1; transition: opacity .6s ease; pointer-events: none; }
+  .loader { position: fixed; left: 50%; bottom: 140px; transform: translateX(-50%); font-size: 12px; opacity: 0; transition: opacity .3s; letter-spacing: .04em; }
+  .loader.on { opacity: .85; }
+  @media (max-width: 640px) { .stop { width: 108px; } .stop img { height: 54px; } .sub { display: none; } .btn .t { display: none; } .hint { font-size: 12px; padding: 10px 14px; top: 38%; } .top { padding-left: 16px; padding-right: 16px; } }
+</style>
+</head>
+<body>
+<div id="view"></div>
+<div id="hots"></div>
+<div id="fade"></div>
+<div class="top">
+  <div>
+    <div class="title">Silent Auction Room</div>
+    <div class="sub" id="where">Garden party · 360° walkthrough</div>
+  </div>
+  <div class="tools">
+    <button class="btn" id="rot" title="Auto rotate"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 4v5h-5"/></svg><span class="t">Rotate</span></button>
+    <button class="btn" id="fs" title="Full screen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg></button>
+  </div>
+</div>
+<div class="hint" id="hint">Drag to look around · tap a marker to walk</div>
+<div class="loader" id="loader">Loading…</div>
+<div class="strip" id="strip"></div>
+
+<script type="importmap">{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js" } }</script>
+<script type="module">
+import * as THREE from 'three';
+
+// Camera positions in the room (meters, x right, y toward the card wall) and the direction each panorama faces.
+const STOPS = [
+  { id: 'entrance', label: 'Entrance',          file: 'pano_entrance', pos: [0, 1.6],     fwd: [0, 1],  near: ['auction', 'bar', 'booth'] },
+  { id: 'auction',  label: 'Auction table',     file: 'pano_auction',  pos: [-0.6, 7.0],  fwd: [0, 1],  near: ['entrance', 'seating', 'bar', 'vip', 'booth'] },
+  { id: 'seating',  label: 'Seating wall',      file: 'pano_seating',  pos: [0, 15.0],    fwd: [0, 1],  near: ['auction', 'vip', 'booth'] },
+  { id: 'bar',      label: 'Bar & step and repeat', file: 'pano_bar', pos: [6.9, 4.4],   fwd: [1, 0],  near: ['entrance', 'auction', 'vip'] },
+  { id: 'vip',      label: 'VIP lounge',        file: 'pano_vip',      pos: [15.4, 16.6], fwd: [-1, -0.4], near: ['seating', 'auction', 'bar'] },
+  { id: 'booth',    label: '360 photo booth',   file: 'pano_booth',    pos: [-7.4, 14.2], fwd: [-0.6, 0.8], near: ['seating', 'auction', 'entrance'] },
+];
+const EYE = 1.6;
+const byId = Object.fromEntries(STOPS.map(s => [s.id, s]));
+
+const view = document.getElementById('view');
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.setSize(innerWidth, innerHeight);
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+view.appendChild(renderer.domElement);
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(75, innerWidth / innerHeight, 0.1, 1000);
+const geo = new THREE.SphereGeometry(500, 96, 64); geo.scale(-1, 1, 1);
+const matA = new THREE.MeshBasicMaterial({ transparent: true, opacity: 1, depthWrite: false });
+const matB = new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false });
+const sphA = new THREE.Mesh(geo, matA), sphB = new THREE.Mesh(geo, matB);
+sphB.renderOrder = 1;
+scene.add(sphA, sphB);
+const loader = new THREE.TextureLoader();
+const maxAniso = renderer.capabilities.getMaxAnisotropy();
+const cache = {};
+function load(file) {
+  if (!cache[file]) cache[file] = new Promise((res, rej) => loader.load(`${file}.jpg`, t => {
+    t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = maxAniso; t.generateMipmaps = true; t.minFilter = THREE.LinearMipmapLinearFilter; res(t);
+  }, undefined, rej));
+  return cache[file];
+}
+
+// Yaw 0 is the centre of each panorama, positive yaw turns right.
+let yaw = 0, pitch = -0.05, fov = 75, cur = null, auto = true, lastInteract = 0;
+const dir = (y, p) => new THREE.Vector3(-Math.cos(y) * Math.cos(p), Math.sin(p), -Math.sin(y) * Math.cos(p));
+
+function yawTo(from, to) {
+  const dx = to.pos[0] - from.pos[0], dy = to.pos[1] - from.pos[1];
+  const fl = Math.hypot(...from.fwd), fx = from.fwd[0] / fl, fy = from.fwd[1] / fl;
+  return { yaw: Math.atan2(dx * fy - dy * fx, dx * fx + dy * fy), dist: Math.hypot(dx, dy) };
+}
+
+const hotsEl = document.getElementById('hots');
+let hots = [];
+function buildHots(stop) {
+  hotsEl.innerHTML = ''; hots = [];
+  for (const id of stop.near) {
+    const t = byId[id]; const { yaw: y, dist } = yawTo(stop, t);
+    const p = Math.atan2(0.55 - EYE, dist);
+    const el = document.createElement('div'); el.className = 'hot';
+    el.innerHTML = `<div class="ring"></div><div class="lbl">${t.label}</div>`;
+    el.addEventListener('click', e => { e.stopPropagation(); go(id, y); });
+    el.addEventListener('pointerdown', e => e.stopPropagation());
+    hotsEl.appendChild(el);
+    hots.push({ el, v: dir(y, p).multiplyScalar(100) });
+  }
+}
+
+const strip = document.getElementById('strip');
+for (const s of STOPS) {
+  const b = document.createElement('button'); b.className = 'stop'; b.dataset.id = s.id;
+  b.innerHTML = `<img src="thumbs/${s.file}.jpg" alt=""><span>${s.label}</span>`;
+  b.onclick = () => go(s.id); strip.appendChild(b);
+}
+
+const fadeEl = document.getElementById('fade'), loadEl = document.getElementById('loader');
+let busy = false;
+async function go(id, travelYaw) {
+  if (busy || (cur && cur.id === id)) return;
+  busy = true;
+  const next = byId[id];
+  const slow = setTimeout(() => loadEl.classList.add('on'), 250);
+  const tex = await load(next.file);
+  clearTimeout(slow); loadEl.classList.remove('on');
+  // keep looking the same way you walked
+  let newYaw = 0;
+  if (cur && travelYaw !== undefined) {
+    const worldA = Math.atan2(cur.fwd[0], cur.fwd[1]) + travelYaw;
+    const worldB = Math.atan2(next.fwd[0], next.fwd[1]);
+    newYaw = worldA - worldB;
+  } else if (cur) newYaw = 0;
+  if (!cur) {
+    matA.map = tex; matA.needsUpdate = true; cur = next; yaw = 0; buildHots(next); mark();
+    fadeEl.style.opacity = 0; busy = false; return;
+  }
+  matB.map = tex; matB.needsUpdate = true; matB.opacity = 0;
+  hotsEl.style.transition = 'opacity .25s'; hotsEl.style.opacity = 0;
+  const t0 = performance.now(), dur = 700, startFov = fov, y0 = yaw;
+  await new Promise(res => {
+    function step(now) {
+      const k = Math.min(1, (now - t0) / dur), e = k < .5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2;
+      matB.opacity = e; fov = startFov - 12 * Math.sin(Math.PI * k);
+      if (travelYaw !== undefined) yaw = y0 + (travelYaw - y0) * Math.min(1, k * 1.6);
+      k < 1 ? requestAnimationFrame(step) : res();
+    }
+    requestAnimationFrame(step);
+  });
+  matA.map = tex; matA.needsUpdate = true; matB.opacity = 0; fov = startFov;
+  yaw = newYaw; cur = next; buildHots(next); mark();
+  hotsEl.style.opacity = 1; busy = false;
+  // warm the cache for neighbours
+  next.near.forEach(n => load(byId[n].file));
+}
+function mark() {
+  document.querySelectorAll('.stop').forEach(b => b.classList.toggle('on', b.dataset.id === cur.id));
+  document.getElementById('where').textContent = cur.label + ' · drag to look around';
+}
+
+// look controls
+let drag = null;
+view.addEventListener('pointerdown', e => { drag = { x: e.clientX, y: e.clientY, yaw, pitch }; view.classList.add('dragging'); view.setPointerCapture(e.pointerId); interact(); });
+view.addEventListener('pointermove', e => {
+  if (!drag) return;
+  const k = (fov * Math.PI / 180) / innerHeight;
+  yaw = drag.yaw - (e.clientX - drag.x) * k; pitch = Math.max(-1.45, Math.min(1.45, drag.pitch + (e.clientY - drag.y) * k));
+});
+const end = () => { drag = null; view.classList.remove('dragging'); };
+view.addEventListener('pointerup', end); view.addEventListener('pointercancel', end);
+view.addEventListener('wheel', e => { e.preventDefault(); fov = Math.max(30, Math.min(95, fov + e.deltaY * 0.04)); interact(); }, { passive: false });
+let pinch = null;
+view.addEventListener('touchstart', e => { if (e.touches.length === 2) pinch = { d: dist2(e), fov }; }, { passive: true });
+view.addEventListener('touchmove', e => { if (pinch && e.touches.length === 2) fov = Math.max(30, Math.min(95, pinch.fov * pinch.d / dist2(e))); }, { passive: true });
+view.addEventListener('touchend', () => { pinch = null; });
+const dist2 = e => Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
+addEventListener('keydown', e => {
+  if (e.key === 'ArrowLeft') yaw -= 0.08; if (e.key === 'ArrowRight') yaw += 0.08;
+  if (e.key === 'ArrowUp') pitch = Math.min(1.45, pitch + 0.06); if (e.key === 'ArrowDown') pitch = Math.max(-1.45, pitch - 0.06);
+  interact();
+});
+function interact() { lastInteract = performance.now(); const h = document.getElementById('hint'); h.style.opacity = 0; }
+document.getElementById('rot').onclick = () => { auto = !auto; lastInteract = 0; };
+document.getElementById('fs').onclick = () => document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen?.();
+addEventListener('resize', () => { renderer.setSize(innerWidth, innerHeight); camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); });
+
+const tmp = new THREE.Vector3();
+function frame(now) {
+  if (auto && !drag && now - lastInteract > 6000) yaw += 0.0007;
+  camera.fov = fov; camera.updateProjectionMatrix();
+  camera.lookAt(dir(yaw, pitch));
+  renderer.render(scene, camera);
+  for (const h of hots) {
+    tmp.copy(h.v).project(camera);
+    const vis = tmp.z < 1 && Math.abs(tmp.x) < 1.2 && Math.abs(tmp.y) < 1.2;
+    h.el.style.display = vis ? 'flex' : 'none';
+    if (vis) { h.el.style.left = ((tmp.x + 1) / 2 * innerWidth) + 'px'; h.el.style.top = ((1 - tmp.y) / 2 * innerHeight) + 'px'; }
+  }
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+setTimeout(() => document.getElementById('hint').style.opacity = 0, 5000);
+go('entrance');
+</script>
+</body>
+</html>
